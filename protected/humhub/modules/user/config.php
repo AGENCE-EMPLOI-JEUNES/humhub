@@ -22,6 +22,10 @@ return [
             'pattern' => 'api/auth/login',
             'route' => 'user/erp-auth/api-login',
         ],
+        [
+            'pattern' => 'api/erp/validate-token',
+            'route' => 'user/erp-auth/validate-token',
+        ],
         ['class' => 'humhub\modules\user\components\UrlRule'],
         'people' => 'user/people',
         '<userContainer>/home' => 'user/profile/home',

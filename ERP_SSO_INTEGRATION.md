@@ -103,12 +103,35 @@ This document describes the Single Sign-On (SSO) integration between the ERP sys
    ```
 
 2. **`protected/config/web.php`**
-   - Added ERP API URL configuration
+   - Added ERP API URL and base URL configuration
    ```php
    'params' => [
        'erpApiUrl' => getenv('ERP_API_URL') ?: 'http://localhost:8000/api',
+       'erpBaseUrl' => getenv('ERP_BASE_URL') ?: 'http://localhost:8000',
    ]
    ```
+
+3. **`protected/humhub/modules/user/services/ErpAuthService.php`** (NEW - Two-Way SSO)
+   - `generateAuthUrl()` method generates secure SSO URL with token for ERP
+   - Creates 64-character random token using `Security::generateRandomString(64)`
+   - Stores token in cache with user data for 5 minutes
+   - URL format: `{erp_base_url}/auth_user?humhub_token={secure_token}`
+   - `validateSsoToken()` method validates tokens and returns user data (single-use)
+
+4. **`protected/humhub/modules/user/controllers/ErpAuthController.php`**
+   - Added `actionValidateToken()` method - API endpoint for token validation
+   - Called by ERP to verify tokens from HumHub
+   - Returns user data if token is valid
+
+5. **`protected/humhub/modules/user/config.php`**
+   - Added route: `api/erp/validate-token` → `user/erp-auth/validate-token`
+
+6. **`protected/humhub/modules/user/Events.php`** (UI Component)
+   - Added ERP SSO menu item to top navigation
+   - Shows "SIGA-AEJ" link in the main navigation bar (between SPACES and user profile)
+   - Uses ErpAuthService to generate secure SSO URL
+   - Opens in new tab with `target="_blank"`
+   - Automatically visible to all logged-in users when `erpBaseUrl` is configured
 
 ## Security Features
 
@@ -223,14 +246,146 @@ cd /path/to/humhub
 tail -f protected/runtime/logs/app.log | grep "ERP SSO"
 ```
 
+## Two-Way SSO Implementation
+
+### Overview
+Two-Way SSO allows users to navigate seamlessly between ERP and HumHub in both directions:
+- **ERP → HumHub**: Already implemented (see main documentation)
+- **HumHub → ERP**: ✅ **NEWLY IMPLEMENTED**
+
+### User Flow (HumHub → ERP)
+1. User is logged into HumHub
+2. User clicks on ERP link/widget (can be added to HumHub UI)
+3. HumHub generates a **secure, single-use token** and stores it in cache
+4. User is redirected to ERP with the token (email is NOT visible in URL)
+5. ERP validates the token by calling HumHub's API
+6. HumHub verifies the token and returns user data
+7. ERP logs the user in automatically
+8. User is redirected to the ERP dashboard
+
+### Implementation Details
+
+#### HumHub Side
+
+**ErpAuthService** (`protected/humhub/modules/user/services/ErpAuthService.php`):
+```php
+$erpAuthService = new \humhub\modules\user\services\ErpAuthService();
+$authUrl = $erpAuthService->generateAuthUrl($user);
+// Returns: https://erp.example.com/auth_user?humhub_token=ABC123...
+```
+
+**API Endpoint** (`/api/erp/validate-token`):
+- Validates tokens from ERP
+- Returns user data if token is valid
+- Deletes token after validation (single-use)
+
+#### ERP Side
+
+**AuthErpController** (`app/Http/Controllers/Erp/AuthErpController.php`):
+- Updated `auth_user()` method to handle `humhub_token` parameter
+- Validates token via HumHub API before authenticating
+- Falls back to legacy email-based auth if no token provided
+
+**URL Format**:
+```
+https://erp.example.com/auth_user?humhub_token={secure_token}
+```
+
+### Security Features (Same as ERP → HumHub)
+- ✅ **Secure Token Generation**: 64-character random tokens
+- ✅ **Single-Use Tokens**: Each token deleted after validation
+- ✅ **Time-Limited**: Tokens expire after 5 minutes
+- ✅ **No Email in URL**: Email addresses never exposed
+- ✅ **API Validation**: ERP validates tokens with HumHub API
+- ✅ **User Status Check**: Only enabled users can authenticate
+
+### UI Component
+
+**Top Navigation Menu Item**:
+- A "SIGA-AEJ" link is automatically added to the HumHub top navigation bar
+- Appears after Dashboard, People, and Spaces menu items
+- Clicking the link generates a secure SSO token and redirects to ERP
+- Opens in a new tab
+- Visible to all logged-in users when `erpBaseUrl` is configured
+
+**Location**: You'll see it in the main navigation:
+```
+MY SPACES | DASHBOARD | PEOPLE | SPACES | SIGA-AEJ
+```
+
+### Usage Example
+
+**Automatic (Recommended)**:
+The ERP link is automatically added to the top navigation when configured. No code changes needed!
+
+**Manual Implementation (Optional)**:
+If you want to add ERP links elsewhere in HumHub:
+```php
+use humhub\modules\user\services\ErpAuthService;
+
+// Get current user
+$user = Yii::$app->user->identity;
+
+// Generate ERP SSO URL
+$erpAuthService = new ErpAuthService();
+$erpUrl = $erpAuthService->generateAuthUrl($user);
+
+// Use in view/widget
+echo '<a href="' . $erpUrl . '" target="_blank">Go to ERP</a>';
+```
+
+### Configuration
+
+**HumHub** (`protected/config/web.php` or environment variable):
+```php
+'params' => [
+    'erpBaseUrl' => 'https://erp.agenceemploijeunes.ci',
+]
+```
+
+Or set environment variable:
+```env
+ERP_BASE_URL=https://erp.agenceemploijeunes.ci
+```
+
+**ERP** (`config/siga.php`):
+```php
+'urls' => [
+    'humhub' => 'https://humhub.agenceemploijeunes.ci',
+]
+```
+
+### Testing Two-Way SSO
+
+1. **Test Token Generation**:
+   ```php
+   // In HumHub
+   $user = User::findOne(['email' => 'test@example.com']);
+   $service = new ErpAuthService();
+   $url = $service->generateAuthUrl($user);
+   echo $url; // Should contain humhub_token parameter
+   ```
+
+2. **Test Token Validation**:
+   ```bash
+   # Extract token from URL, then test validation:
+   curl -X POST https://humhub.test/api/erp/validate-token \
+     -H "Content-Type: application/json" \
+     -d '{"token":"YOUR_TOKEN_HERE"}'
+   ```
+
+3. **End-to-End Test**:
+   - Log into HumHub
+   - Generate ERP SSO URL using ErpAuthService
+   - Click the link
+   - Verify URL contains `humhub_token=` (NOT email)
+   - Should be logged into ERP automatically
+
 ## Future Enhancements
 
 1. **Automatic User Provisioning**
    - Create HumHub users automatically when they don't exist
    - Sync user profile data from ERP to HumHub
-
-2. **Two-Way SSO**
-   - Allow users to navigate from HumHub back to ERP with SSO
 
 3. **Token-Based Security**
    - Implement JWT or signed tokens for secure SSO
@@ -261,14 +416,18 @@ REDIS_PORT=6379
 
 **HumHub (environment variable or config):**
 ```env
-# ERP API URL for token validation
+# ERP API URL for token validation (ERP → HumHub)
 ERP_API_URL=https://erp.agenceemploijeunes.ci/api
+
+# ERP Base URL for SSO links (HumHub → ERP)
+ERP_BASE_URL=https://erp.agenceemploijeunes.ci
 ```
 
 Or in `protected/config/web.php`:
 ```php
 'params' => [
     'erpApiUrl' => 'https://erp.agenceemploijeunes.ci/api',
+    'erpBaseUrl' => 'https://erp.agenceemploijeunes.ci',
 ]
 ```
 
@@ -283,8 +442,10 @@ Or in `protected/config/web.php`:
 - User must exist with same email as in ERP
 - User status must be "Enabled" (status = 1)
 - cURL extension enabled in PHP
-- ERP API URL configured
+- ERP API URL configured (for ERP → HumHub)
+- ERP Base URL configured (for HumHub → ERP)
 - Network access to ERP API endpoint
+- Cache configured (for token storage)
 
 ## Support
 
@@ -297,6 +458,7 @@ For issues or questions:
 ---
 
 **Implementation Date**: December 2, 2025
-**Last Updated**: December 2, 2025
-**Status**: ✅ Working
+**Last Updated**: December 3, 2025
+**Status**: ✅ Working (One-Way: ERP → HumHub)
+**Two-Way SSO**: ✅ Implemented with UI (December 3, 2025)
 

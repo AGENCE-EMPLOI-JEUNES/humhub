@@ -14,6 +14,7 @@ use humhub\components\Controller;
 use humhub\modules\user\authclient\ErpAuth;
 use humhub\modules\user\models\User;
 use humhub\modules\user\services\AuthClientService;
+use humhub\modules\user\services\ErpAuthService;
 use Yii;
 use yii\web\HttpException;
 
@@ -54,7 +55,7 @@ class ErpAuthController extends Controller
         return [
             'acl' => [
                 'class' => AccessControl::class,
-                'guestAllowedActions' => ['auth-user', 'api-login'],
+                'guestAllowedActions' => ['auth-user', 'api-login', 'validate-token'],
             ],
         ];
     }
@@ -213,6 +214,86 @@ class ErpAuthController extends Controller
             return [
                 'status' => false,
                 'message' => 'An error occurred during authentication'
+            ];
+        }
+    }
+
+    /**
+     * API endpoint to validate SSO token from ERP
+     * Called by ERP to verify the token before authenticating user
+     * 
+     * @return array
+     */
+    public function actionValidateToken()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        try {
+            $token = Yii::$app->request->post('token');
+
+            if (empty($token)) {
+                return [
+                    'status' => false,
+                    'message' => 'Token is required'
+                ];
+            }
+
+            // Use ErpAuthService to validate token
+            $erpAuthService = new ErpAuthService();
+            $tokenData = $erpAuthService->validateSsoToken($token);
+
+            if (!$tokenData) {
+                return [
+                    'status' => false,
+                    'message' => 'Token invalide ou expiré'
+                ];
+            }
+
+            // Verify user exists and is enabled
+            $user = User::findOne(['email' => $tokenData['email']]);
+
+            if (!$user) {
+                Yii::warning("ERP SSO: User not found for validated token", [
+                    'email' => $tokenData['email']
+                ]);
+                return [
+                    'status' => false,
+                    'message' => 'Utilisateur non trouvé'
+                ];
+            }
+
+            if ($user->status != User::STATUS_ENABLED) {
+                Yii::warning("ERP SSO: User not enabled", [
+                    'email' => $tokenData['email'],
+                    'status' => $user->status
+                ]);
+                return [
+                    'status' => false,
+                    'message' => 'Compte désactivé'
+                ];
+            }
+
+            Yii::info("ERP SSO: Token validated successfully", [
+                'user_id' => $user->id,
+                'email' => $user->email
+            ]);
+
+            return [
+                'status' => true,
+                'user' => [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'username' => $user->username,
+                    'displayName' => $user->displayName,
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Yii::error("ERP SSO Token Validation Error: {$e->getMessage()}");
+
+            return [
+                'status' => false,
+                'message' => 'An error occurred during token validation'
             ];
         }
     }
