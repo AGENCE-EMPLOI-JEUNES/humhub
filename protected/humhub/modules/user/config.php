@@ -13,6 +13,15 @@ return [
     'class' => Module::class,
     'isCoreModule' => true,
     'urlManagerRules' => [
+        // ERP Authentication Routes - MUST be before ContentContainerUrlRule
+        [
+            'pattern' => 'auth_user/<user_email:[^/]+>',
+            'route' => 'user/erp-auth/auth-user',
+        ],
+        [
+            'pattern' => 'api/auth/login',
+            'route' => 'user/erp-auth/api-login',
+        ],
         ['class' => 'humhub\modules\user\components\UrlRule'],
         'people' => 'user/people',
         '<userContainer>/home' => 'user/profile/home',

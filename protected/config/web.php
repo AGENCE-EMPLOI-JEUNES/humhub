@@ -5,5 +5,8 @@
  * @see https://docs.humhub.org/docs/admin/advanced-configuration
  */
 return [
+    'params' => [
+        // ERP SSO Configuration
+        'erpApiUrl' => getenv('ERP_API_URL') ?: 'http://localhost:8000/api',
+    ],
 ];
-
