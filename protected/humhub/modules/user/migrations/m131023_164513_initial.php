@@ -30,11 +30,15 @@ class m131023_164513_initial extends Migration
         ], '');
 
 
-        $this->createTable('profile', [
-            'user_id' => 'int(11) NOT NULL',
-        ], '');
-
-        $this->addPrimaryKey('pk_profile', 'profile', 'user_id');
+        try {
+            // May already be created
+            $this->createTable('profile', [
+                'user_id' => 'int(11) NOT NULL',
+            ], '');
+            $this->addPrimaryKey('pk_profile', 'profile', 'user_id');
+        } catch (Exception $ex) {
+            // Table may already exist
+        }
 
         $this->createTable('profile_field', [
             'id' => 'pk',
@@ -105,16 +109,20 @@ class m131023_164513_initial extends Migration
             'updated_by' => 'int(11) NOT NULL',
         ], '');
 
-        $this->createTable('user_follow', [
-            'user_follower_id' => 'int(11) NOT NULL',
-            'user_followed_id' => 'int(11) NOT NULL',
-            'created_at' => 'datetime DEFAULT NULL',
-            'created_by' => 'int(11) DEFAULT NULL',
-            'updated_at' => 'datetime DEFAULT NULL',
-            'updated_by' => 'int(11) DEFAULT NULL',
-        ], '');
-
-        $this->addPrimaryKey('pk_user_follow', 'user_follow', 'user_follower_id,user_followed_id');
+        try {
+            // May already be created
+            $this->createTable('user_follow', [
+                'user_follower_id' => 'int(11) NOT NULL',
+                'user_followed_id' => 'int(11) NOT NULL',
+                'created_at' => 'datetime DEFAULT NULL',
+                'created_by' => 'int(11) DEFAULT NULL',
+                'updated_at' => 'datetime DEFAULT NULL',
+                'updated_by' => 'int(11) DEFAULT NULL',
+            ], '');
+            $this->addPrimaryKey('pk_user_follow', 'user_follow', 'user_follower_id,user_followed_id');
+        } catch (Exception $ex) {
+            // Table may already exist
+        }
 
 
         try {
@@ -172,7 +180,12 @@ class m131023_164513_initial extends Migration
             'updated_by' => 'int(11) NOT NULL',
         ], '');
 
-        $this->addPrimaryKey('pk_user_space_membership', 'user_space_membership', 'space_id,user_id');
+        try {
+            // May already be created
+            $this->addPrimaryKey('pk_user_space_membership', 'user_space_membership', 'space_id,user_id');
+        } catch (Exception $ex) {
+            // Primary key may already exist
+        }
     }
 
     public function down()
