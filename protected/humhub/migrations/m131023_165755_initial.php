@@ -21,11 +21,15 @@ class m131023_165755_initial extends Migration
         ], '');
 
 
-        $this->createTable('module_enabled', [
-            'module_id' => 'varchar(100) NOT NULL',
-        ], '');
-
-        $this->addPrimaryKey('pk_module_enabled', 'module_enabled', 'module_id');
+        try {
+            // May already be created
+            $this->createTable('module_enabled', [
+                'module_id' => 'varchar(100) NOT NULL',
+            ], '');
+            $this->addPrimaryKey('pk_module_enabled', 'module_enabled', 'module_id');
+        } catch (Exception $ex) {
+            // Table may already exist
+        }
     }
 
     public function down()
