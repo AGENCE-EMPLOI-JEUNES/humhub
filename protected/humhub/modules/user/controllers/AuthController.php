@@ -422,6 +422,14 @@ class AuthController extends Controller
             Yii::$app->getResponse()->getCookies()->add($cookie);
         }
 
+        // Redirect to ERP if configured (for seamless integration)
+        $erpBaseUrl = Yii::$app->params['erpBaseUrl'] ?? null;
+        if (!empty($erpBaseUrl)) {
+            Yii::info("User logged out, redirecting to ERP: {$erpBaseUrl}");
+            return $this->redirect($erpBaseUrl);
+        }
+
+        // Default redirect behavior
         return $this->redirect(($this->module->logoutUrl) ? $this->module->logoutUrl : Yii::$app->homeUrl);
     }
 

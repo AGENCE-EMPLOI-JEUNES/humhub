@@ -14,6 +14,10 @@ You can now navigate seamlessly between ERP (SIGA-AEJ) and HumHub in both direct
 - It appears after: MY SPACES | DASHBOARD | PEOPLE | SPACES | **SIGA-AEJ**
 - Click it to automatically log into ERP in a new tab
 
+### 3. Logout Behavior (NEW!)
+- When you log out of HumHub, you're automatically redirected to ERP
+- This keeps you in the ERP ecosystem for a seamless experience
+
 ## Configuration Required
 
 ### HumHub Configuration
@@ -66,6 +70,16 @@ Edit `erpaej/config/siga.php`:
 4. **Verify Success**
    - You should land on the ERP dashboard
    - Should be logged in as the same user
+
+### Test Logout Redirect
+
+1. **While logged into HumHub**
+   - Click on your profile picture/username (top right)
+   - Click "Logout"
+
+2. **Verify Redirect**
+   - You should be redirected to ERP (https://erp.agenceemploijeunes.ci)
+   - Not to HumHub login page
 
 ### Troubleshooting
 

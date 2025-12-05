@@ -133,6 +133,11 @@ This document describes the Single Sign-On (SSO) integration between the ERP sys
    - Opens in new tab with `target="_blank"`
    - Automatically visible to all logged-in users when `erpBaseUrl` is configured
 
+7. **`protected/humhub/modules/user/controllers/AuthController.php`** (Logout Redirect)
+   - Modified `actionLogout()` to redirect to ERP after logout
+   - When `erpBaseUrl` is configured, users are redirected to ERP instead of HumHub home
+   - Provides seamless integration - users return to ERP after logging out
+
 ## Security Features
 
 ### Implemented Security Measures
@@ -262,6 +267,11 @@ Two-Way SSO allows users to navigate seamlessly between ERP and HumHub in both d
 6. HumHub verifies the token and returns user data
 7. ERP logs the user in automatically
 8. User is redirected to the ERP dashboard
+
+### Logout Behavior
+- When user logs out of HumHub, they are automatically redirected to ERP
+- This provides a seamless user experience
+- Users can then log back into ERP or HumHub as needed
 
 ### Implementation Details
 
