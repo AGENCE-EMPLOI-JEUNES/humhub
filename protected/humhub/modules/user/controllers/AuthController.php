@@ -106,6 +106,75 @@ class AuthController extends Controller
      */
     public function actionLogin()
     {
+        // ==== ERP SSO AUTHENTICATION ====
+        $erp_token = Yii::$app->request->get('erp_token');
+        if ($erp_token) {
+            Yii::info("ERP SSO: Token-based authentication attempt", [
+                'token_preview' => substr($erp_token, 0, 10) . '...'
+            ]);
+
+            try {
+                // Validate token with ERP API
+                $erpApiUrl = Yii::$app->params['erpApiUrl'] ?? 'http://localhost:8000/api';
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $erpApiUrl . '/humhub/validate-token');
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['token' => $erp_token]));
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                ]);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
+                curl_close($ch);
+
+                if ($curlError) {
+                    Yii::error("ERP SSO: cURL error - {$curlError}");
+                    Yii::$app->session->setFlash('error', Yii::t('UserModule.base', 'Authentication service unavailable.'));
+                } elseif ($httpCode === 200) {
+                    $data = json_decode($response, true);
+
+                    if ($data && isset($data['status']) && $data['status'] === true && isset($data['user']['email'])) {
+                        $email = $data['user']['email'];
+                        Yii::info("ERP SSO: Token validated successfully for {$email}");
+
+                        $user = User::findOne(['email' => $email]);
+                        if ($user && $user->status == User::STATUS_ENABLED) {
+                            if (Yii::$app->user->login($user, 0)) {
+                                Yii::info("ERP SSO: User {$email} logged in successfully");
+                                Yii::$app->session->set('erp_login', true);
+                                Yii::$app->session->set('erp_login_time', time());
+                                Yii::$app->session->set('erp_user_data', $data['user']);
+                                return $this->redirect(['/dashboard/dashboard']);
+                            } else {
+                                Yii::warning("ERP SSO: Login failed for enabled user {$email}");
+                            }
+                        } else {
+                            Yii::warning("ERP SSO: User {$email} not found or not enabled in HumHub");
+                        }
+                    } else {
+                        Yii::warning("ERP SSO: Invalid response from ERP API", ['response' => $response]);
+                    }
+                } else {
+                    Yii::warning("ERP SSO: Token validation failed", [
+                        'http_code' => $httpCode,
+                        'response' => $response
+                    ]);
+                }
+
+            } catch (\Exception $e) {
+                Yii::error("ERP SSO: Exception during token validation - {$e->getMessage()}");
+            }
+
+            Yii::$app->session->setFlash('error', Yii::t('UserModule.base', 'Invalid login credentials.'));
+        }
+        // ==== END ERP SSO ====
+
         // If user is already logged in, redirect him to the dashboard
         if (!Yii::$app->user->isGuest) {
             return $this->goBack();
@@ -213,7 +282,8 @@ class AuthController extends Controller
         $inviteRegistrationService = InviteRegistrationService::createFromRequestOrEmail($attributes['email'] ?? null);
         $linkRegistrationService = LinkRegistrationService::createFromRequest();
 
-        if (!$inviteRegistrationService->isValid()
+        if (
+            !$inviteRegistrationService->isValid()
             && !$linkRegistrationService->isValid()
             && (!$authClientService->allowSelfRegistration() && !in_array($authClient->id, $this->module->allowUserRegistrationFromAuthClientIds))
         ) {
@@ -352,6 +422,14 @@ class AuthController extends Controller
             Yii::$app->getResponse()->getCookies()->add($cookie);
         }
 
+        // Redirect to ERP if configured (for seamless integration)
+        $erpBaseUrl = Yii::$app->params['erpBaseUrl'] ?? null;
+        if (!empty($erpBaseUrl)) {
+            Yii::info("User logged out, redirecting to ERP: {$erpBaseUrl}");
+            return $this->redirect($erpBaseUrl);
+        }
+
+        // Default redirect behavior
         return $this->redirect(($this->module->logoutUrl) ? $this->module->logoutUrl : Yii::$app->homeUrl);
     }
 

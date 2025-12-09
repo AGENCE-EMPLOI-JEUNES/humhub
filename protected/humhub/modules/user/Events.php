@@ -16,6 +16,7 @@ use humhub\modules\user\models\Password;
 use humhub\modules\user\models\Profile;
 use humhub\modules\user\models\User;
 use humhub\modules\user\permissions\PeopleAccess;
+use humhub\modules\user\services\ErpAuthService;
 use Yii;
 use yii\base\BaseObject;
 
@@ -172,18 +173,41 @@ class Events extends BaseObject
             return;
         }
 
-        if (!Yii::$app->user->can(PeopleAccess::class)) {
-            return;
+        // Add People menu item
+        if (Yii::$app->user->can(PeopleAccess::class)) {
+            $event->sender->addEntry(new MenuLink([
+                'id' => 'people',
+                'icon' => 'users',
+                'label' => Yii::t('UserModule.base', 'People'),
+                'url' => ['/user/people'],
+                'sortOrder' => 200,
+                'isActive' => ControllerHelper::isActivePath('user', 'people'),
+            ]));
         }
 
-        $event->sender->addEntry(new MenuLink([
-            'id' => 'people',
-            'icon' => 'users',
-            'label' => Yii::t('UserModule.base', 'People'),
-            'url' => ['/user/people'],
-            'sortOrder' => 200,
-            'isActive' => ControllerHelper::isActivePath('user', 'people'),
-        ]));
+        // Add ERP SSO menu item (Two-Way SSO)
+        $erpBaseUrl = Yii::$app->params['erpBaseUrl'] ?? null;
+        if (!empty($erpBaseUrl)) {
+            try {
+                $user = Yii::$app->user->identity;
+                // $erpAuthService = new ErpAuthService();
+                // $erpSsoUrl = $erpAuthService->generateAuthUrl($user);
+
+                $event->sender->addEntry(new MenuLink([
+                    'id' => 'erp-sso',
+                    'icon' => 'briefcase',
+                    'label' => 'SIGA-AEJ',
+                    'url' => $erpBaseUrl,
+                    'sortOrder' => 300,
+                    'htmlOptions' => [
+                        // 'target' => '_blank',
+                        'rel' => 'noopener noreferrer',
+                    ],
+                ]));
+            } catch (\Exception $e) {
+                Yii::error("Failed to generate ERP SSO URL: {$e->getMessage()}");
+            }
+        }
     }
 
 }

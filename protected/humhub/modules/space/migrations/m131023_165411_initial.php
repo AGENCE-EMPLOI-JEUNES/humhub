@@ -24,16 +24,20 @@ class m131023_165411_initial extends Migration
             'updated_by' => 'int(11) DEFAULT NULL',
         ], '');
 
-        $this->createTable('space_follow', [
-            'user_id' => 'int(11) NOT NULL',
-            'space_id' => 'int(11) NOT NULL',
-            'created_at' => 'datetime DEFAULT NULL',
-            'created_by' => 'int(11) DEFAULT NULL',
-            'updated_at' => 'datetime DEFAULT NULL',
-            'updated_by' => 'int(11) DEFAULT NULL',
-        ], '');
-
-        $this->addPrimaryKey('pk_space_follow', 'space_follow', 'user_id,space_id');
+        try {
+            // May already be created
+            $this->createTable('space_follow', [
+                'user_id' => 'int(11) NOT NULL',
+                'space_id' => 'int(11) NOT NULL',
+                'created_at' => 'datetime DEFAULT NULL',
+                'created_by' => 'int(11) DEFAULT NULL',
+                'updated_at' => 'datetime DEFAULT NULL',
+                'updated_by' => 'int(11) DEFAULT NULL',
+            ], '');
+            $this->addPrimaryKey('pk_space_follow', 'space_follow', 'user_id,space_id');
+        } catch (Exception $ex) {
+            // Table may already exist
+        }
 
         $this->createTable('space_module', [
             'id' => 'pk',

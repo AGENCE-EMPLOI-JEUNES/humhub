@@ -6,12 +6,16 @@ class m171015_155102_contentcontainer_module extends Migration
 {
     public function safeUp()
     {
-        $this->createTable('contentcontainer_module', [
-            'contentcontainer_id' => $this->integer()->notNull(),
-            'module_id' => $this->char(100),
-            'module_state' => $this->smallInteger(),
-        ]);
-        $this->addPrimaryKey('pk_contentcontainer_module', 'contentcontainer_module', ['contentcontainer_id', 'module_id']);
+        try {
+            $this->createTable('contentcontainer_module', [
+                'contentcontainer_id' => $this->integer()->notNull(),
+                'module_id' => $this->char(100),
+                'module_state' => $this->smallInteger(),
+            ]);
+            $this->addPrimaryKey('pk_contentcontainer_module', 'contentcontainer_module', ['contentcontainer_id', 'module_id']);
+        } catch (Exception $ex) {
+            // Table may already exist
+        }
 
         try {
             $this->addForeignKey('fk_contentcontainer', 'contentcontainer_module', 'contentcontainer_id', 'contentcontainer', 'id', 'CASCADE', 'CASCADE');

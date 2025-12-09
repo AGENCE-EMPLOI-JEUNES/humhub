@@ -16,7 +16,11 @@ class m151010_124437_group_permissions extends Migration
             'state' => Schema::TYPE_BOOLEAN,
         ]);
 
-        $this->addPrimaryKey('permission_pk', 'group_permission', ['permission_id', 'group_id', 'module_id']);
+        try {
+            $this->addPrimaryKey('permission_pk', 'group_permission', ['permission_id', 'group_id', 'module_id']);
+        } catch (Exception $ex) {
+            // Primary key may already exist
+        }
 
         $groups = (new Query())->select("group.*")->from('group');
         foreach ($groups->each() as $group) {
