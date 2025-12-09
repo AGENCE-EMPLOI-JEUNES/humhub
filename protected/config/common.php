@@ -5,4 +5,10 @@
  * @see https://docs.humhub.org/docs/admin/advanced-configuration
  */
 return [
+    'components' => [
+        'urlManager' => [
+            'showScriptName' => false,
+            'enablePrettyUrl' => true,
+        ],
+    ]
 ];
