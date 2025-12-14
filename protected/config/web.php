@@ -9,5 +9,8 @@ return [
         // ERP SSO Configuration
         'erpApiUrl' => $_ENV['ERP_API_URL'] ?? 'http://localhost:8000/api',
         'erpBaseUrl' => $_ENV['ERP_BASE_URL'] ?? 'http://localhost:8000',
+
+        // Hide "Powered by HumHub" footer
+        'hidePoweredBy' => true,
     ],
 ];
